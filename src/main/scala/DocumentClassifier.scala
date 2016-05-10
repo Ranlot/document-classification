@@ -142,10 +142,10 @@ object DocumentClassifier {
     val lr = new LogisticRegression()
 
     val paramGrid = new ParamGridBuilder()
-      .addGrid(lr.regParam, Array(0.9, 0.97))
+      .addGrid(lr.regParam, Array(1.0, 0.95))
       .addGrid(lr.maxIter, Array(100))
-      .addGrid(hash1.numFeatures, Array(65536, 262144))
-      .addGrid(hash2.numFeatures, Array(65536, 262144))
+      .addGrid(hash1.numFeatures, Array(131072))
+      .addGrid(hash2.numFeatures, Array(131072))
       .build()
 
     val pipeML = new Pipeline() setStages Array(tokenizer, ngram, remover, hash1, idf1, hash2, idf2, allAssembler, lr)
@@ -176,12 +176,12 @@ object DocumentClassifier {
     testTweetsDF = testTweetsDF withColumn("numericalFeatures", makeVectorOfNumericalFeatures(array(numericalTestColumns: _*)))
 
     val allPreds = model transform testTweetsDF
-    val myPreds = allPreds select("ID", "probability", "prediction")
+    val myPreds = allPreds select("ID", "probability")
 
     myPreds show()
 
-    /*val res = myPreds.map(x => Array(x.getAs[String]("ID"), x.getAs[Vector]("probability").toArray(0).toString, x.getAs[Double]("prediction").toString).mkString(","))
-    res.coalesce(1).saveAsTextFile("src/test/resources/result")*/
+    val res = myPreds.map(x => Array(x.getAs[String]("ID"), x.getAs[Vector]("probability").toArray(0).toString).mkString(","))
+    res.coalesce(1).saveAsTextFile("src/test/resources/result")
 
   }
 
