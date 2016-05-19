@@ -87,25 +87,15 @@ object DocumentClassifier {
 
     // 1) read the data
 
-    //val goodTweets = sc.textFile("src/test/resources/good_non_marketing_tweets.shuffle.txt")
-    //val badTweets = sc.textFile("src/test/resources/bad_marketing_tweets.shuffle.txt")
-
-    val goodTweets = sc.textFile("src/main/bash/dataSet/SMSSpamCollection")
+    val dataSet = sc.textFile("src/main/bash/dataSet/SMSSpamCollection")
 
     // 2) format as a tweet & calculate some numerical features
 
-    val pos = goodTweets map makeTweet
-    /*val neg = badTweets map {
-      makeTweet(0.0, _)
-    }*/
+    val allData = dataSet map makeTweet toDF()
 
-    // 3) put data into dataframe
+    //split into training and testing
 
-    //var trainData = pos union neg toDF()
-
-    var trainData = pos toDF()
-
-    //trainData.show()
+    var Array(trainData, testData) = allData randomSplit Array(0.7, 0.3) //ugly multiple assignments
 
     // 4) join all numerical features into a single vector column
 
@@ -165,27 +155,23 @@ object DocumentClassifier {
 
     model.getEstimatorParamMaps.zip(model.avgMetrics).foreach(println)
 
-    // 8) read new dataset and apply the model to make predictions
+    // 8) apply the model to make predictions on test data set
 
-    //val testTweets = sc.textFile("src/test/resources/tweets.shuffle.small.txt")
-    /*val testTweets = sc.textFile("src/test/resources/tweets.shuffle.txt")
+    testData = testData withColumn("numericalFeatures", makeVectorOfNumericalFeatures(array(numericalColumns: _*)))
 
-    var testTweetsDF = testTweets map {
-      makeTweet(99.0, _) //the label here is irrelevant
-    } toDF()
-
-    val numericalTestColumns = nameOfNumericalColumns map {
-      testTweetsDF(_)
-    }
-
-    testTweetsDF = testTweetsDF withColumn("numericalFeatures", makeVectorOfNumericalFeatures(array(numericalTestColumns: _*)))
-
-    val allPreds = model transform testTweetsDF
-    val myPreds = allPreds select("ID", "probability")
+    val allPreds = model transform testData
+    val myPreds = allPreds select("label", "prediction")
 
     myPreds show()
 
-    val res = myPreds.map(x => Array(x.getAs[String]("ID"), x.getAs[Vector]("probability").toArray(0).toString).mkString(","))
+    //make a ROC curve
+
+    val correctPreds = myPreds map { x => x.getAs[Double]("label") == x.getAs[Double]("prediction") } filter { _ == true } count()
+
+    println(correctPreds)
+    println(testData.count())
+
+    /*val res = myPreds.map(x => Array(x.getAs[String]("ID"), x.getAs[Vector]("probability").toArray(0).toString).mkString(","))
     res.coalesce(1).saveAsTextFile("src/test/resources/result")*/
 
   }
