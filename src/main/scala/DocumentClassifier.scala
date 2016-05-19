@@ -23,7 +23,11 @@ object DocumentClassifier {
     alphaNumericContent toLowerCase
   }
 
-  def getTweetID(line: String) = line split "\t" head
+  def getTweetLabel(line: String): Double = {
+    val label = line split "\t" head
+    val resultingLabel = if(label == "spam" ) 1.0 else 0.0
+    resultingLabel
+  }
 
   def countSymbol(symbol: Char)(line: String) = line count (_ == symbol)
 
@@ -45,7 +49,6 @@ object DocumentClassifier {
   val freeFinder = wordFinder("free")(_)
 
   case class Tweet(label: Double,
-                   ID: String,
                    content: String,
                    numbOfWords: Double,
                    hashSignCounter: Double,
@@ -57,9 +60,8 @@ object DocumentClassifier {
                    giveAwayCounter: Double,
                    freeCounter: Double)
 
-  def makeTweet(label: Double, line: String) = {
-    Tweet(label,
-      getTweetID(line),
+  def makeTweet(line: String) = {
+    Tweet(getTweetLabel(line),
       preProcess(line),
       tweetLength(line),
       countHashSymbol(line),
@@ -85,21 +87,25 @@ object DocumentClassifier {
 
     // 1) read the data
 
-    val goodTweets = sc.textFile("src/test/resources/good_non_marketing_tweets.shuffle.txt")
-    val badTweets = sc.textFile("src/test/resources/bad_marketing_tweets.shuffle.txt")
+    //val goodTweets = sc.textFile("src/test/resources/good_non_marketing_tweets.shuffle.txt")
+    //val badTweets = sc.textFile("src/test/resources/bad_marketing_tweets.shuffle.txt")
+
+    val goodTweets = sc.textFile("src/main/bash/dataSet/SMSSpamCollection")
 
     // 2) format as a tweet & calculate some numerical features
 
-    val pos = goodTweets map {
-      makeTweet(1.0, _)
-    }
-    val neg = badTweets map {
+    val pos = goodTweets map makeTweet
+    /*val neg = badTweets map {
       makeTweet(0.0, _)
-    }
+    }*/
 
     // 3) put data into dataframe
 
-    var trainData = pos union neg toDF()
+    //var trainData = pos union neg toDF()
+
+    var trainData = pos toDF()
+
+    //trainData.show()
 
     // 4) join all numerical features into a single vector column
 
@@ -144,8 +150,8 @@ object DocumentClassifier {
     val paramGrid = new ParamGridBuilder()
       .addGrid(lr.regParam, Array(1.0, 0.95))
       .addGrid(lr.maxIter, Array(100))
-      .addGrid(hash1.numFeatures, Array(131072))
-      .addGrid(hash2.numFeatures, Array(131072))
+      .addGrid(hash1.numFeatures, Array(4098))
+      .addGrid(hash2.numFeatures, Array(4098))
       .build()
 
     val pipeML = new Pipeline() setStages Array(tokenizer, ngram, remover, hash1, idf1, hash2, idf2, allAssembler, lr)
@@ -161,9 +167,8 @@ object DocumentClassifier {
 
     // 8) read new dataset and apply the model to make predictions
 
-    val testTweets = sc.textFile("src/test/resources/tweets.shuffle.small.txt")
-    //val testTweets = sc.textFile("/home/laurentb/NLP/tweets.shuffle.small.2.txt")
-    //val testTweets = sc.textFile("/home/laurentb/NLP/tweets.shuffle.txt")
+    //val testTweets = sc.textFile("src/test/resources/tweets.shuffle.small.txt")
+    /*val testTweets = sc.textFile("src/test/resources/tweets.shuffle.txt")
 
     var testTweetsDF = testTweets map {
       makeTweet(99.0, _) //the label here is irrelevant
@@ -181,7 +186,7 @@ object DocumentClassifier {
     myPreds show()
 
     val res = myPreds.map(x => Array(x.getAs[String]("ID"), x.getAs[Vector]("probability").toArray(0).toString).mkString(","))
-    res.coalesce(1).saveAsTextFile("src/test/resources/result")
+    res.coalesce(1).saveAsTextFile("src/test/resources/result")*/
 
   }
 
